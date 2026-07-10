@@ -1,3 +1,5 @@
+import os
+
 from fastmcp import FastMCP
 
 from .auditor import audit_document
@@ -37,4 +39,8 @@ def submit_feedback(documentation_url: str, issue_summary: str, evidence: str) -
 
 
 if __name__ == "__main__":
-    mcp.run(transport="sse")
+    mcp.run(
+        transport="sse",
+        host=os.getenv("TRUTHKEEPER_HOST", "127.0.0.1"),
+        port=int(os.getenv("TRUTHKEEPER_PORT", "8000")),
+    )

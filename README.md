@@ -123,7 +123,7 @@ export AWS_SECRET_ACCESS_KEY=YOUR_SECRET_HERE
 export AWS_DEFAULT_REGION=cn-north-1
 ```
 
-3. **可选：配置公开 Qwen3-235B-VL 接口**：
+2. **可选：配置公开 Qwen3-235B-VL 接口**：
 
 ```bash
 export QWEN_API_KEY=YOUR_PUBLIC_QWEN_API_KEY
@@ -131,10 +131,10 @@ export QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 export QWEN_MODEL=qwen3-235b-vl
 ```
 
-2. **启动 MCP Server**：
+3. **启动 MCP Server**：
 
 ```bash
-python src/server.py
+PYTHONPATH=src python -m china_doc_truthkeeper.server
 ```
 
 4. **MCP 客户端配置**：
@@ -161,6 +161,10 @@ python src/server.py
 | [FastMCP](https://github.com/jlowin/fastmcp) | MCP Server 框架 | MIT |
 | [boto3](https://github.com/boto/boto3) | AWS SDK for Python | Apache-2.0 |
 | [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) | HTML 文档解析 | MIT |
-| [NWCD AI Chat](https://chat.nwcdcloud.cn) | 前端 UI + LLM | 内部平台 |
+| 公开 Qwen3-235B-VL 接口 | 可选的文档审计推理 | 以服务提供商条款为准 |
 
 所有代码为原创开发。
+
+## 部署
+
+参见 [部署说明](docs/DEPLOYMENT.md)，包括 EC2 + systemd、Nginx TLS、Docker、安全组、IAM Role 与 Qwen API Key 的安全配置。
