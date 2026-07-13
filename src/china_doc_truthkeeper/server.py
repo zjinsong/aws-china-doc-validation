@@ -4,6 +4,7 @@ from fastmcp import FastMCP
 
 from .auditor import audit_document
 from .config import get_settings
+from .feedback import AwsDocsFeedbackSubmitter, FeedbackSubmissionError
 from .knowledge_base import KnowledgeBase
 from .verifier import verify_service_availability
 
@@ -34,8 +35,11 @@ def audit_documentation(documentation_url: str, service: str = "", feature: str 
 
 @mcp.tool()
 def submit_feedback(documentation_url: str, issue_summary: str, evidence: str) -> dict:
-    """Create a local feedback draft. This tool never sends email or opens a support case automatically."""
-    return knowledge_base.create_feedback_draft(documentation_url, issue_summary, {"evidence": evidence})
+    """Submit a documentation issue through the feedback form on an AWS China Docs page."""
+    try:
+        return AwsDocsFeedbackSubmitter().submit(documentation_url, issue_summary, evidence)
+    except FeedbackSubmissionError as exc:
+        return {"status": "failed", "error_code": exc.code, "message": str(exc)}
 
 
 if __name__ == "__main__":
