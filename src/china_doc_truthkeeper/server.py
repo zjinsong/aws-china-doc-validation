@@ -4,6 +4,7 @@ from fastmcp import FastMCP
 
 from .auditor import audit_document
 from .config import get_settings
+from .document_verifier import DocumentFeatureVerifier, DocumentVerificationError
 from .feedback import AwsDocsFeedbackSubmitter, FeedbackSubmissionError
 from .knowledge_base import KnowledgeBase
 from .verifier import verify_service_availability
@@ -21,9 +22,28 @@ def query_knowledge_base(query: str, limit: int = 10) -> list[dict]:
 
 @mcp.tool()
 def verify_feature(service: str, feature: str, region: str | None = None) -> dict:
-    """Verify AWS China service endpoint availability using the aws-cn service catalog and cache the result."""
+    """Verify only service endpoint availability using the aws-cn service catalog."""
     result = verify_service_availability(service, feature, region or settings.aws_region)
     return knowledge_base.save_check(service, feature, result["region"], result["status"], result["evidence"])
+
+
+@mcp.tool()
+def verify_document_feature(
+    documentation_url: str,
+    service: str,
+    feature: str,
+    region: str | None = None,
+) -> dict:
+    """Verify a documented feature with safe List/Describe calls against an AWS China endpoint."""
+    try:
+        result = DocumentFeatureVerifier().verify(
+            documentation_url, service, feature, region or settings.aws_region
+        )
+    except (DocumentVerificationError, ValueError) as exc:
+        return {"status": "failed", "error_code": type(exc).__name__, "message": str(exc)}
+    return knowledge_base.save_check(
+        result["service"], result["feature"], result["region"], result["status"], result["evidence"]
+    )
 
 
 @mcp.tool()
