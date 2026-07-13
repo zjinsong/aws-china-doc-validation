@@ -140,7 +140,7 @@
       }
     },
     {
-      "service": "states",
+      "service": "stepfunctions",
       "match": {"type": "keywords", "any_of": ["state machine", "step functions", "workflow"]},
       "probe": {
         "type": "api_reachable",
@@ -218,6 +218,204 @@
         "type": "api_reachable",
         "operation": "ListNotebookInstances",
         "interpretation": "The SageMaker ListNotebookInstances API is reachable in this region."
+      }
+    },
+    {
+      "service": "emr-serverless",
+      "match": {"type": "keywords", "any_of": ["serverless", "application", "spark", "hive"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListApplications",
+        "interpretation": "The EMR Serverless ListApplications API is reachable in this region, confirming the EMR Serverless control plane works."
+      }
+    },
+    {
+      "service": "emr",
+      "match": {"type": "keywords", "any_of": ["cluster", "spark", "hadoop", "step"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListClusters",
+        "interpretation": "The EMR ListClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "emr-containers",
+      "match": {"type": "keywords", "any_of": ["eks", "virtual cluster", "on eks"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListVirtualClusters",
+        "interpretation": "The EMR on EKS ListVirtualClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "athena",
+      "match": {"type": "keywords", "any_of": ["workgroup", "query", " query engine", "presto"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListWorkGroups",
+        "interpretation": "The Athena ListWorkGroups API is reachable in this region."
+      }
+    },
+    {
+      "service": "kafka",
+      "match": {"type": "keywords", "any_of": ["msk", "kafka", "broker"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListClustersV2",
+        "interpretation": "The Amazon MSK ListClustersV2 API is reachable in this region."
+      }
+    },
+    {
+      "service": "redshift-serverless",
+      "match": {"type": "keywords", "any_of": ["serverless", "namespace", "workgroup"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListNamespaces",
+        "interpretation": "The Redshift Serverless ListNamespaces API is reachable in this region."
+      }
+    },
+    {
+      "service": "redshift",
+      "match": {"type": "keywords", "any_of": ["cluster", "data warehouse", "warehouse"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeClusters",
+        "interpretation": "The Redshift DescribeClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "batch",
+      "match": {"type": "keywords", "any_of": ["job queue", "batch", "compute environment"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeJobQueues",
+        "interpretation": "The AWS Batch DescribeJobQueues API is reachable in this region."
+      }
+    },
+    {
+      "service": "apprunner",
+      "match": {"type": "keywords", "any_of": ["app runner", "service", "container"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListServices",
+        "interpretation": "The App Runner ListServices API is reachable in this region."
+      }
+    },
+    {
+      "service": "transfer",
+      "match": {"type": "keywords", "any_of": ["sftp", "ftp", "transfer family", "server"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListServers",
+        "interpretation": "The Transfer Family ListServers API is reachable in this region."
+      }
+    },
+    {
+      "service": "mq",
+      "match": {"type": "keywords", "any_of": ["activemq", "rabbitmq", "broker", "message broker"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListBrokers",
+        "interpretation": "The Amazon MQ ListBrokers API is reachable in this region."
+      }
+    },
+    {
+      "service": "fsx",
+      "match": {"type": "keywords", "any_of": ["fsx", "lustre", "windows file server", "ontap", "openzfs"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeFileSystems",
+        "interpretation": "The FSx DescribeFileSystems API is reachable in this region."
+      }
+    },
+    {
+      "service": "backup",
+      "match": {"type": "keywords", "any_of": ["backup vault", "backup plan", "aws backup"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListBackupVaults",
+        "interpretation": "The AWS Backup ListBackupVaults API is reachable in this region."
+      }
+    },
+    {
+      "service": "cloudtrail",
+      "match": {"type": "keywords", "any_of": ["trail", "audit log", "event history"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeTrails",
+        "interpretation": "The CloudTrail DescribeTrails API is reachable in this region."
+      }
+    },
+    {
+      "service": "codebuild",
+      "match": {"type": "keywords", "any_of": ["build project", "codebuild", "build"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListProjects",
+        "interpretation": "The CodeBuild ListProjects API is reachable in this region."
+      }
+    },
+    {
+      "service": "codepipeline",
+      "match": {"type": "keywords", "any_of": ["pipeline", "codepipeline", "continuous delivery"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListPipelines",
+        "interpretation": "The CodePipeline ListPipelines API is reachable in this region."
+      }
+    },
+    {
+      "service": "dms",
+      "match": {"type": "keywords", "any_of": ["replication instance", "database migration", "dms"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeReplicationInstances",
+        "interpretation": "The DMS DescribeReplicationInstances API is reachable in this region."
+      }
+    },
+    {
+      "service": "elasticbeanstalk",
+      "match": {"type": "keywords", "any_of": ["beanstalk", "application", "environment"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeApplications",
+        "interpretation": "The Elastic Beanstalk DescribeApplications API is reachable in this region."
+      }
+    },
+    {
+      "service": "memorydb",
+      "match": {"type": "keywords", "any_of": ["memorydb", "redis", "cluster"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeClusters",
+        "interpretation": "The MemoryDB DescribeClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "datasync",
+      "match": {"type": "keywords", "any_of": ["datasync", "data transfer", "task"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListTasks",
+        "interpretation": "The DataSync ListTasks API is reachable in this region."
+      }
+    },
+    {
+      "service": "globalaccelerator",
+      "match": {"type": "keywords", "any_of": ["global accelerator", "accelerator", "anycast"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListAccelerators",
+        "interpretation": "The Global Accelerator ListAccelerators API is reachable in this partition."
+      }
+    },
+    {
+      "service": "timestream-write",
+      "match": {"type": "keywords", "any_of": ["timestream", "time series", "time-series"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListDatabases",
+        "interpretation": "The Timestream ListDatabases API is reachable in this region."
       }
     }
   ]
