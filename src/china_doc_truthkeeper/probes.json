@@ -1,0 +1,163 @@
+{
+  "$schema_description": "Data-driven safe-probe registry for document-driven AWS China feature verification. Each entry maps an AWS service and a set of feature keywords to a read-only List/Describe probe that requires no account resource identifiers. Probe types: 'instance_family' runs DescribeInstanceTypeOfferings filtered by an EC2 instance family parsed from the feature; 'api_reachable' calls a zero-parameter List/Describe operation and only confirms the API endpoint is reachable in the region (an empty result does not prove feature support).",
+  "probes": [
+    {
+      "service": "ec2",
+      "match": {"type": "instance_family"},
+      "probe": {"type": "instance_family", "operation": "DescribeInstanceTypeOfferings"}
+    },
+    {
+      "service": "dynamodb",
+      "match": {"type": "keywords", "any_of": ["global table"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListGlobalTables",
+        "interpretation": "The legacy ListGlobalTables API is reachable; its response does not by itself prove current Global Tables feature support."
+      }
+    },
+    {
+      "service": "s3",
+      "match": {"type": "keywords", "any_of": ["storage lens"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListStorageLensConfigurations",
+        "interpretation": "The S3 Storage Lens ListStorageLensConfigurations API is reachable in this region."
+      }
+    },
+    {
+      "service": "kinesis",
+      "match": {"type": "keywords", "any_of": ["stream", "data stream"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListStreams",
+        "interpretation": "The Kinesis ListStreams API is reachable in this region."
+      }
+    },
+    {
+      "service": "lambda",
+      "match": {"type": "keywords", "any_of": ["function", "layer", "event source"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListFunctions",
+        "interpretation": "The Lambda ListFunctions API is reachable in this region."
+      }
+    },
+    {
+      "service": "efs",
+      "match": {"type": "keywords", "any_of": ["file system", "elastic file system"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeFileSystems",
+        "interpretation": "The EFS DescribeFileSystems API is reachable in this region."
+      }
+    },
+    {
+      "service": "ecr",
+      "match": {"type": "keywords", "any_of": ["repository", "registry", "image scanning"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeRepositories",
+        "interpretation": "The ECR DescribeRepositories API is reachable in this region."
+      }
+    },
+    {
+      "service": "sns",
+      "match": {"type": "keywords", "any_of": ["topic", "fifo", "notification"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListTopics",
+        "interpretation": "The SNS ListTopics API is reachable in this region."
+      }
+    },
+    {
+      "service": "sqs",
+      "match": {"type": "keywords", "any_of": ["queue", "fifo"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListQueues",
+        "interpretation": "The SQS ListQueues API is reachable in this region."
+      }
+    },
+    {
+      "service": "states",
+      "match": {"type": "keywords", "any_of": ["state machine", "step functions", "workflow"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListStateMachines",
+        "interpretation": "The Step Functions ListStateMachines API is reachable in this region."
+      }
+    },
+    {
+      "service": "eks",
+      "match": {"type": "keywords", "any_of": ["cluster", "kubernetes", "fargate"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListClusters",
+        "interpretation": "The EKS ListClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "ecs",
+      "match": {"type": "keywords", "any_of": ["cluster", "fargate", "task definition"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListClusters",
+        "interpretation": "The ECS ListClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "elasticache",
+      "match": {"type": "keywords", "any_of": ["redis", "memcached", "cache cluster", "serverless"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "DescribeCacheClusters",
+        "interpretation": "The ElastiCache DescribeCacheClusters API is reachable in this region."
+      }
+    },
+    {
+      "service": "es",
+      "match": {"type": "keywords", "any_of": ["opensearch", "elasticsearch", "domain"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListDomainNames",
+        "interpretation": "The OpenSearch ListDomainNames API is reachable in this region."
+      }
+    },
+    {
+      "service": "secretsmanager",
+      "match": {"type": "keywords", "any_of": ["secret", "rotation"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListSecrets",
+        "interpretation": "The Secrets Manager ListSecrets API is reachable in this region."
+      }
+    },
+    {
+      "service": "cloudfront",
+      "match": {"type": "keywords", "any_of": ["distribution", "cdn", "function"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListDistributions",
+        "interpretation": "The CloudFront ListDistributions API is reachable in this partition."
+      }
+    },
+    {
+      "service": "glue",
+      "match": {"type": "keywords", "any_of": ["crawler", "etl", "data catalog", "job"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "GetJobs",
+        "interpretation": "The Glue GetJobs API is reachable in this region."
+      }
+    },
+    {
+      "service": "sagemaker",
+      "match": {"type": "keywords", "any_of": ["notebook", "endpoint", "training", "model"]},
+      "probe": {
+        "type": "api_reachable",
+        "operation": "ListNotebookInstances",
+        "interpretation": "The SageMaker ListNotebookInstances API is reachable in this region."
+      }
+    }
+  ]
+}

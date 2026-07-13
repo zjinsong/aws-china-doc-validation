@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
+import json
+from pathlib import Path
 import re
 from urllib.parse import urlparse
 
@@ -42,6 +45,25 @@ _PERMISSION_CODES = {
     "ExpiredToken",
     "ExpiredTokenException",
 }
+
+_DEFAULT_REGISTRY_PATH = Path(__file__).with_name("probes.json")
+
+
+@lru_cache(maxsize=None)
+def load_probe_registry(path: str | None = None) -> tuple[dict, ...]:
+    """Load the data-driven probe registry from JSON.
+
+    Returns a tuple of probe entries. Results are cached per path. A missing or
+    malformed registry yields an empty registry rather than raising, so the
+    generic List/Describe probing still works.
+    """
+    registry_path = Path(path) if path else _DEFAULT_REGISTRY_PATH
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ()
+    entries = data.get("probes", []) if isinstance(data, dict) else []
+    return tuple(entry for entry in entries if isinstance(entry, dict) and entry.get("service"))
 
 
 class DocumentVerificationError(ValueError):
@@ -110,10 +132,11 @@ class DocumentFeatureVerifier:
 
     max_generic_probes = 10
 
-    def __init__(self, http_get=requests.get, client_factory=boto3.client, botocore_session=None):
+    def __init__(self, http_get=requests.get, client_factory=boto3.client, botocore_session=None, registry=None):
         self.http_get = http_get
         self.client_factory = client_factory
         self.botocore_session = botocore_session or Session()
+        self.registry = tuple(registry) if registry is not None else load_probe_registry()
 
     def verify(self, documentation_url: str, service: str, feature: str, region: str) -> dict:
         url = validate_china_documentation_url(documentation_url)
@@ -191,20 +214,47 @@ class DocumentFeatureVerifier:
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    @staticmethod
-    def _adapter(service: str, feature: str) -> dict | None:
-        lower = feature.lower()
-        if service == "ec2":
-            match = _INSTANCE_FAMILY.fullmatch(lower.strip())
-            if match:
-                return {"operation": "DescribeInstanceTypeOfferings", "family": match.group(1)}
-        if service == "dynamodb" and "global table" in lower:
-            return {"operation": "ListGlobalTables"}
+    def _adapter(self, service: str, feature: str) -> dict | None:
+        """Resolve a feature-specific probe from the data-driven registry.
+
+        Returns a normalized adapter dict with at least an "operation" key, plus
+        "probe_type" and any extra fields (e.g. "family", "interpretation").
+        Returns None when no registry entry matches, so the generic
+        List/Describe probing is used instead.
+        """
+        lower = feature.lower().strip()
+        for entry in self.registry:
+            if entry.get("service") != service:
+                continue
+            match = entry.get("match", {})
+            probe = entry.get("probe", {})
+            match_type = match.get("type")
+
+            if match_type == "instance_family":
+                family_match = _INSTANCE_FAMILY.fullmatch(lower)
+                if family_match:
+                    return {
+                        "operation": probe.get("operation", "DescribeInstanceTypeOfferings"),
+                        "probe_type": "instance_family",
+                        "family": family_match.group(1),
+                    }
+            elif match_type == "keywords":
+                keywords = match.get("any_of", [])
+                if any(keyword.lower() in lower for keyword in keywords):
+                    adapter = {
+                        "operation": probe["operation"],
+                        "probe_type": probe.get("type", "api_reachable"),
+                    }
+                    if "interpretation" in probe:
+                        adapter["interpretation"] = probe["interpretation"]
+                    return adapter
         return None
 
     def _run_adapter(self, client, service: str, feature: str, region: str, adapter: dict) -> dict:
+        probe_type = adapter.get("probe_type")
         operation = adapter["operation"]
-        if service == "ec2":
+
+        if probe_type == "instance_family":
             family = adapter["family"]
             parameters = {
                 "LocationType": "region",
@@ -213,7 +263,7 @@ class DocumentFeatureVerifier:
             }
             probe = self._call(client, service, operation, region, parameters)
             probe["cli_command"] = (
-                f"aws ec2 describe-instance-type-offerings --location-type region "
+                f"aws {service} {xform_name(operation).replace('_', '-')} --location-type region "
                 f"--filters Name=instance-type,Values={family}.* --region {region}"
             )
             if probe["status"] == "api_available":
@@ -230,12 +280,14 @@ class DocumentFeatureVerifier:
                 probe["interpretation"] = "Matching regional EC2 instance type offerings were returned."
             return probe
 
-        # ListGlobalTables confirms the read-only API is reachable. An empty list says
-        # nothing about feature support, so the response body is deliberately ignored.
+        # Default: an "api_reachable" probe. Calling a zero-parameter List/Describe
+        # operation confirms the API endpoint exists in the region. An empty result
+        # says nothing about feature support, so the response body is ignored.
         probe = self._call(client, service, operation, region, {})
-        probe["interpretation"] = (
-            "The legacy ListGlobalTables API is reachable; its response does not by itself prove current "
-            "Global Tables feature support."
+        probe["interpretation"] = adapter.get(
+            "interpretation",
+            f"The {operation} API is reachable in this region; its response does not by "
+            "itself prove feature support.",
         )
         return probe
 
