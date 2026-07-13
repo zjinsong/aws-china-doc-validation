@@ -5,6 +5,7 @@ from fastmcp import FastMCP
 from .auditor import audit_document
 from .config import get_settings
 from .document_verifier import DocumentFeatureVerifier, DocumentVerificationError
+from .evidence_chain import verify_feature_evidence_chain
 from .feedback import AwsDocsFeedbackSubmitter, FeedbackSubmissionError
 from .knowledge_base import KnowledgeBase
 from .verifier import verify_service_availability
@@ -50,6 +51,39 @@ def verify_document_feature(
         return {"status": "failed", "error_code": type(exc).__name__, "message": str(exc)}
     return knowledge_base.save_check(
         result["service"], result["feature"], result["region"], result["status"], result["evidence"]
+    )
+
+
+@mcp.tool()
+def verify_feature_comprehensive(
+    service: str,
+    feature: str,
+    region: str | None = None,
+    documentation_url: str | None = None,
+    resource_name: str | None = None,
+) -> dict:
+    """Verify a China-region feature using an ordered multi-source evidence chain.
+
+    Runs, in increasing order of authority: (1) China documentation comparison,
+    (2) What's New announcement search at amazonaws.cn/new, (3) a safe live API
+    probe. Then synthesizes a graded verdict (available / likely_available /
+    unavailable / unknown). This avoids the static-SDK-catalog false negative:
+    a missing catalog entry never decides the verdict on its own; a real launch
+    announcement or a successful API probe is authoritative positive evidence.
+
+    Provide documentation_url to enable the documentation step and the
+    document-driven probe. Provide resource_name to opt in to a resource-scoped
+    probe (e.g. an S3 bucket) for features whose API needs one identifier.
+    """
+    result = verify_feature_evidence_chain(
+        service,
+        feature,
+        region or settings.aws_region,
+        documentation_url=documentation_url,
+        resource=resource_name,
+    )
+    return knowledge_base.save_check(
+        result["service"], result["feature"], result["region"], result["status"], result
     )
 
 
