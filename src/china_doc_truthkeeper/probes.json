@@ -16,12 +16,13 @@
       }
     },
     {
-      "service": "s3",
+      "service": "s3control",
       "match": {"type": "keywords", "any_of": ["storage lens"]},
       "probe": {
-        "type": "api_reachable",
+        "type": "resource_probe",
         "operation": "ListStorageLensConfigurations",
-        "interpretation": "The S3 Storage Lens ListStorageLensConfigurations API is reachable in this region."
+        "param_name": "AccountId",
+        "interpretation": "S3 Storage Lens is served by the s3control API. ListStorageLensConfigurations succeeding for the provided AccountId confirms the feature works in this region."
       }
     },
     {
