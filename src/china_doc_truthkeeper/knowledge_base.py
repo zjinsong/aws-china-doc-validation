@@ -30,14 +30,6 @@ class KnowledgeBase:
                     checked_at TEXT NOT NULL,
                     UNIQUE(service, feature, region)
                 );
-                CREATE TABLE IF NOT EXISTS feedback_drafts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    documentation_url TEXT NOT NULL,
-                    issue_summary TEXT NOT NULL,
-                    evidence TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'draft',
-                    created_at TEXT NOT NULL
-                );
                 """
             )
             conn.commit()
@@ -87,17 +79,3 @@ class KnowledgeBase:
         finally:
             conn.close()
         return [{**dict(row), "evidence": json.loads(row["evidence"])} for row in rows]
-
-    def create_feedback_draft(self, documentation_url: str, issue_summary: str, evidence: dict) -> dict:
-        created_at = datetime.now(timezone.utc).isoformat()
-        conn = self._connect()
-        try:
-            cursor = conn.execute(
-                "INSERT INTO feedback_drafts(documentation_url, issue_summary, evidence, created_at) VALUES (?, ?, ?, ?)",
-                (documentation_url, issue_summary, json.dumps(evidence, ensure_ascii=False), created_at),
-            )
-            conn.commit()
-            identifier = cursor.lastrowid
-        finally:
-            conn.close()
-        return {"id": identifier, "status": "draft", "created_at": created_at}

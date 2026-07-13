@@ -19,6 +19,7 @@ git clone https://github.com/zjinsong/aws-china-doc-validation.git /opt/china-do
 cd /opt/china-doc-truthkeeper
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+.venv/bin/playwright install --with-deps chromium
 ```
 
 创建 `/etc/china-doc-truthkeeper.env`，并设置权限为 `600`：
@@ -32,6 +33,8 @@ QWEN_API_KEY=replace-with-your-public-qwen-api-key
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN_MODEL=qwen3-235b-vl
 ```
+
+`submit_feedback` 使用无头 Chromium 提交 AWS 中国区文档页面反馈。部署主机必须能访问 `docs.amazonaws.cn`，并且只应允许可信 MCP 客户端调用该工具；提交前请确保问题摘要和证据中不含凭证、账户 ID 或其他敏感信息。
 
 创建 `/etc/systemd/system/china-doc-truthkeeper.service`：
 
@@ -120,5 +123,6 @@ docker run -d --name china-doc-truthkeeper \
 - 安全组和 Nginx 仅允许可信来源访问；生产环境使用 HTTPS。
 - IAM Role 遵循最小权限，仅允许所需的 Describe/List/Get 操作。
 - Qwen API Key 存放在受限的环境文件或 Secrets Manager 中，不提交至 Git。
+- 已执行 `playwright install --with-deps chromium`，并允许服务访问 `docs.amazonaws.cn`。
 - 备份 `/var/lib/truthkeeper/truthkeeper.db`，并监控 systemd / Nginx 日志。
 - 先用 `query_knowledge_base` 和 `verify_feature` 验证 MCP 客户端连通性，再开放文档审计功能。
