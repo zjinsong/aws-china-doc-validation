@@ -55,25 +55,37 @@ def _synthesize(doc: dict, announce: dict, api: dict) -> dict:
     """Combine the three sources into a single graded status.
 
     Priority (most authoritative positive evidence first):
-      - a live API probe returning available/api_available  -> available
-      - a China-region availability announcement            -> available (announced)
+      - a real live API probe returning available/api_available -> available
+      - a China-region availability announcement                -> available (announced)
       - documentation says unavailable and nothing contradicts it -> unavailable
-      - a related announcement or documentation 'available'  -> likely_available
-      - otherwise                                            -> unknown
+      - a weak positive signal (related announcement, documentation
+        'available', or the static catalog merely listing the service) -> likely_available
+      - otherwise                                                -> unknown
+
+    The static botocore service catalog is only a weak signal: it says the
+    service exists in the partition, not that this specific feature works, and
+    it lags behind launches. It can never outrank an announcement, and on its
+    own only yields 'likely_available'.
     """
+    probe_type = api.get("probe_type")
     api_status = api.get("status")
     doc_conclusion = doc.get("conclusion")
     announce_conclusion = announce.get("conclusion")
 
+    # A real, live read-only API call actually exercised the feature endpoint.
+    live_probe_positive = probe_type == "live_probe" and api_status in {"available", "api_available"}
+    # The static catalog merely lists the service in the aws-cn partition.
+    catalog_lists_service = probe_type == "service_catalog" and api_status == "available"
+
     reasons: list[str] = []
 
-    if api_status in {"available", "api_available"}:
-        reasons.append(f"live API probe returned '{api_status}'")
+    if live_probe_positive:
+        reasons.append(f"a live API probe returned '{api_status}'")
         status = "available"
     elif announce_conclusion == "announced_available":
         reasons.append("a China-region What's New announcement indicates availability")
         status = "available"
-    elif doc_conclusion == "unavailable" and api_status not in {"available", "api_available"}:
+    elif doc_conclusion == "unavailable":
         reasons.append("China documentation states the feature is not available")
         status = "unavailable"
     elif announce_conclusion == "related_mention":
@@ -82,11 +94,17 @@ def _synthesize(doc: dict, announce: dict, api: dict) -> dict:
     elif doc_conclusion == "available":
         reasons.append("China documentation describes the feature as available")
         status = "likely_available"
+    elif catalog_lists_service:
+        reasons.append(
+            "the static service catalog lists the service in aws-cn (weak signal: "
+            "confirms the service exists, not that this specific feature works)"
+        )
+        status = "likely_available"
     else:
         reasons.append("no source produced positive or negative confirmation")
         status = "unknown"
 
-    # Surface the SDK-catalog signal as context, never as the deciding factor.
+    # Surface the SDK-catalog-missing signal as context, never as the deciding factor.
     if api_status == "sdk_catalog_missing":
         reasons.append(
             "note: service missing from the static SDK catalog (inconclusive, ignored for the verdict)"
@@ -115,8 +133,11 @@ def verify_feature_evidence_chain(
     announce_evidence = announcement_search(service, feature, http_get=http_get)
 
     # 3) Live API probe. Prefer the document-driven probe when a doc URL is given
-    #    (it can run registry/resource probes); otherwise fall back to the safe
-    #    service-catalog check.
+    #    (it can run registry/resource probes and make real read-only calls).
+    #    Without a doc URL we can only consult the static botocore service catalog,
+    #    which is a weak signal (it just says the service exists in the partition,
+    #    not that this specific feature works) and must not be mislabeled as a
+    #    live probe.
     if documentation_url:
         try:
             probe = (verifier or DocumentFeatureVerifier()).verify(
@@ -124,14 +145,25 @@ def verify_feature_evidence_chain(
             )
             api_evidence = {
                 "source": "live API probe",
+                "probe_type": "live_probe",
                 "status": probe["status"],
                 "probes": probe["evidence"].get("probes", []),
             }
         except (DocumentVerificationError, ValueError) as exc:
-            api_evidence = {"source": "live API probe", "status": "unknown", "error": str(exc)}
+            api_evidence = {
+                "source": "live API probe",
+                "probe_type": "live_probe",
+                "status": "unknown",
+                "error": str(exc),
+            }
     else:
         catalog = verify_service_availability(service, feature, region)
-        api_evidence = {"source": "live API probe", "status": catalog["status"], "evidence": catalog["evidence"]}
+        api_evidence = {
+            "source": "static botocore service catalog (not a live probe)",
+            "probe_type": "service_catalog",
+            "status": catalog["status"],
+            "evidence": catalog["evidence"],
+        }
 
     verdict = _synthesize(doc_evidence, announce_evidence, api_evidence)
 

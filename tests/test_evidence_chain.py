@@ -88,7 +88,10 @@ class EvidenceChainSynthesisTests(unittest.TestCase):
         # And the SDK-missing signal is present only as context.
         self.assertTrue(any("SDK catalog" in r for r in result["reasons"]))
 
-    def test_live_api_available_yields_available(self):
+    def test_live_api_available_yields_available_via_announcement(self):
+        # No doc URL, so step 3 is only the static catalog. lambda exists in the
+        # catalog AND has a durable-functions announcement -> the announcement
+        # (not the catalog) drives the 'available' verdict.
         result = verify_feature_evidence_chain(
             "lambda",
             "durable functions",
@@ -97,18 +100,26 @@ class EvidenceChainSynthesisTests(unittest.TestCase):
             http_get=fake_get_factory(),
         )
         self.assertEqual(result["status"], "available")
+        self.assertTrue(any("announcement" in r for r in result["reasons"]))
 
-    def test_no_signal_is_unknown(self):
+    def test_catalog_only_is_weak_likely_available_not_available(self):
+        # A real service in the catalog, but with NO announcement and NO doc:
+        # the static catalog is a weak signal and must yield likely_available,
+        # never a confident 'available', and the reason must say it's weak.
         result = verify_feature_evidence_chain(
             "dynamodb",
-            "some obscure feature",
+            "some obscure feature that has no announcement",
             "cn-northwest-1",
             documentation_url=None,
             http_get=fake_get_factory(),
         )
-        # dynamodb exists in the catalog (status available) -> the chain reports
-        # available via the catalog; use a bogus service to force unknown.
-        self.assertIn(result["status"], {"available", "likely_available", "unknown"})
+        self.assertEqual(result["status"], "likely_available")
+        self.assertTrue(any("weak signal" in r for r in result["reasons"]))
+        # It must NOT be mislabeled as a live API probe result.
+        self.assertFalse(any("live API probe" in r for r in result["reasons"]))
+        self.assertEqual(
+            result["evidence_chain"]["step_3_api_probe"]["probe_type"], "service_catalog"
+        )
 
     def test_bogus_service_no_announcement_is_unknown(self):
         result = verify_feature_evidence_chain(
