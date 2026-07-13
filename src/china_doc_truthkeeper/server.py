@@ -33,11 +33,18 @@ def verify_document_feature(
     service: str,
     feature: str,
     region: str | None = None,
+    resource_name: str | None = None,
 ) -> dict:
-    """Verify a documented feature with safe List/Describe calls against an AWS China endpoint."""
+    """Verify a documented feature with safe List/Describe calls against an AWS China endpoint.
+
+    Set resource_name to opt in to a resource-scoped read-only probe for features whose
+    control-plane API needs one identifier (e.g. an S3 bucket name for Intelligent-Tiering,
+    or a DynamoDB table name for TTL). Without resource_name, such probes are skipped and no
+    account-scoped API is called.
+    """
     try:
         result = DocumentFeatureVerifier().verify(
-            documentation_url, service, feature, region or settings.aws_region
+            documentation_url, service, feature, region or settings.aws_region, resource_name
         )
     except (DocumentVerificationError, ValueError) as exc:
         return {"status": "failed", "error_code": type(exc).__name__, "message": str(exc)}
