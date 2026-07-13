@@ -1,5 +1,5 @@
 {
-  "$schema_description": "Data-driven safe-probe registry for document-driven AWS China feature verification. Each entry maps an AWS service and a set of feature keywords to a read-only List/Describe probe that requires no account resource identifiers. Probe types: 'instance_family' runs DescribeInstanceTypeOfferings filtered by an EC2 instance family parsed from the feature; 'api_reachable' calls a zero-parameter List/Describe operation and only confirms the API endpoint is reachable in the region (an empty result does not prove feature support).",
+  "$schema_description": "Data-driven safe-probe registry for document-driven AWS China feature verification. Each entry maps an AWS service and a set of feature keywords to a read-only List/Describe probe. Probe types: 'instance_family' runs DescribeInstanceTypeOfferings filtered by an EC2 instance family parsed from the feature; 'api_reachable' calls a zero-parameter List/Describe operation and only confirms the API endpoint is reachable in the region (an empty result does not prove feature support); 'resource_probe' calls a read-only List/Describe operation that needs one account resource identifier (declared as 'param_name', e.g. 'Bucket'). A resource_probe only runs when the caller explicitly provides a resource name; otherwise it is skipped without calling AWS, preserving the safe-by-default principle.",
   "probes": [
     {
       "service": "ec2",
@@ -22,6 +22,66 @@
         "type": "api_reachable",
         "operation": "ListStorageLensConfigurations",
         "interpretation": "The S3 Storage Lens ListStorageLensConfigurations API is reachable in this region."
+      }
+    },
+    {
+      "service": "s3",
+      "match": {"type": "keywords", "any_of": ["intelligent-tiering", "intelligent tiering"]},
+      "probe": {
+        "type": "resource_probe",
+        "operation": "ListBucketIntelligentTieringConfigurations",
+        "param_name": "Bucket",
+        "interpretation": "The S3 Intelligent-Tiering ListBucketIntelligentTieringConfigurations API is reachable for the provided bucket, confirming the feature's control-plane API works in this region."
+      }
+    },
+    {
+      "service": "s3",
+      "match": {"type": "keywords", "any_of": ["replication", "cross-region replication", "crr"]},
+      "probe": {
+        "type": "resource_probe",
+        "operation": "GetBucketReplication",
+        "param_name": "Bucket",
+        "interpretation": "The S3 GetBucketReplication API is reachable for the provided bucket; a NoSuchReplicationConfiguration response still confirms the feature API works."
+      }
+    },
+    {
+      "service": "s3",
+      "match": {"type": "keywords", "any_of": ["lifecycle", "lifecycle configuration"]},
+      "probe": {
+        "type": "resource_probe",
+        "operation": "GetBucketLifecycleConfiguration",
+        "param_name": "Bucket",
+        "interpretation": "The S3 GetBucketLifecycleConfiguration API is reachable for the provided bucket."
+      }
+    },
+    {
+      "service": "s3",
+      "match": {"type": "keywords", "any_of": ["object lock"]},
+      "probe": {
+        "type": "resource_probe",
+        "operation": "GetObjectLockConfiguration",
+        "param_name": "Bucket",
+        "interpretation": "The S3 GetObjectLockConfiguration API is reachable for the provided bucket."
+      }
+    },
+    {
+      "service": "dynamodb",
+      "match": {"type": "keywords", "any_of": ["ttl", "time to live", "time-to-live"]},
+      "probe": {
+        "type": "resource_probe",
+        "operation": "DescribeTimeToLive",
+        "param_name": "TableName",
+        "interpretation": "The DynamoDB DescribeTimeToLive API is reachable for the provided table, confirming the TTL feature API works in this region."
+      }
+    },
+    {
+      "service": "dynamodb",
+      "match": {"type": "keywords", "any_of": ["continuous backup", "point-in-time recovery", "pitr"]},
+      "probe": {
+        "type": "resource_probe",
+        "operation": "DescribeContinuousBackups",
+        "param_name": "TableName",
+        "interpretation": "The DynamoDB DescribeContinuousBackups API is reachable for the provided table, confirming the PITR feature API works in this region."
       }
     },
     {

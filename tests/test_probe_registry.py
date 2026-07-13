@@ -151,5 +151,110 @@ class ProbeRegistryTests(unittest.TestCase):
         self.assertIn(result["status"], {"available", "api_available"})
 
 
+class ResourceProbeTests(unittest.TestCase):
+    S3_REGISTRY = [
+        {
+            "service": "s3",
+            "match": {"type": "keywords", "any_of": ["intelligent-tiering", "intelligent tiering"]},
+            "probe": {
+                "type": "resource_probe",
+                "operation": "ListBucketIntelligentTieringConfigurations",
+                "param_name": "Bucket",
+                "interpretation": "S3 Intelligent-Tiering control-plane API works for the provided bucket.",
+            },
+        }
+    ]
+
+    def test_without_resource_no_api_call_is_made(self):
+        client = FakeClient()
+        verifier = make_verifier(
+            "s3", client, "<html><p>S3 Intelligent-Tiering guide</p></html>", self.S3_REGISTRY
+        )
+        result = verifier.verify(
+            "https://docs.amazonaws.cn/test/feature.html", "s3", "Intelligent-Tiering", "cn-northwest-1"
+        )
+        self.assertEqual(client.calls, [])
+        self.assertFalse(result["evidence"]["resource_provided"])
+        probe = result["evidence"]["probes"][0]
+        self.assertEqual(probe["status"], "not_probeable_without_resource")
+        self.assertEqual(probe["required_resource"], "Bucket")
+        self.assertEqual(result["status"], "unknown")
+
+    def test_with_resource_calls_api_and_reports_available(self):
+        client = FakeClient(
+            responses={
+                "list_bucket_intelligent_tiering_configurations": {
+                    "IsTruncated": False,
+                    "ResponseMetadata": {"HTTPStatusCode": 200},
+                }
+            }
+        )
+        verifier = make_verifier(
+            "s3", client, "<html><p>S3 Intelligent-Tiering guide</p></html>", self.S3_REGISTRY
+        )
+        result = verifier.verify(
+            "https://docs.amazonaws.cn/test/feature.html",
+            "s3",
+            "Intelligent-Tiering",
+            "cn-northwest-1",
+            resource="my-bucket",
+        )
+        self.assertTrue(result["evidence"]["resource_provided"])
+        self.assertEqual(len(client.calls), 1)
+        name, kwargs = client.calls[0]
+        self.assertEqual(name, "list_bucket_intelligent_tiering_configurations")
+        self.assertEqual(kwargs, {"Bucket": "my-bucket"})
+        probe = result["evidence"]["probes"][0]
+        self.assertEqual(probe["status"], "available")
+        self.assertEqual(probe["provided_resource"], "Bucket")
+        self.assertEqual(result["status"], "available")
+        # The raw response must not leak into the returned evidence.
+        self.assertNotIn("_response", probe)
+
+    def test_unsupported_operation_is_unavailable(self):
+        from botocore.exceptions import ClientError
+
+        client = FakeClient(
+            error=ClientError(
+                {"Error": {"Code": "UnsupportedOperation", "Message": "not supported"}},
+                "ListBucketIntelligentTieringConfigurations",
+            )
+        )
+        verifier = make_verifier(
+            "s3", client, "<html><p>S3 Intelligent-Tiering guide</p></html>", self.S3_REGISTRY
+        )
+        result = verifier.verify(
+            "https://docs.amazonaws.cn/test/feature.html",
+            "s3",
+            "Intelligent-Tiering",
+            "cn-northwest-1",
+            resource="my-bucket",
+        )
+        self.assertEqual(result["evidence"]["probes"][0]["status"], "unavailable")
+        self.assertEqual(result["status"], "unavailable")
+
+    def test_access_denied_with_resource_is_unknown(self):
+        from botocore.exceptions import ClientError
+
+        client = FakeClient(
+            error=ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "ListBucketIntelligentTieringConfigurations",
+            )
+        )
+        verifier = make_verifier(
+            "s3", client, "<html><p>S3 Intelligent-Tiering guide</p></html>", self.S3_REGISTRY
+        )
+        result = verifier.verify(
+            "https://docs.amazonaws.cn/test/feature.html",
+            "s3",
+            "Intelligent-Tiering",
+            "cn-northwest-1",
+            resource="my-bucket",
+        )
+        # Permission errors must never be misread as feature unavailability.
+        self.assertEqual(result["status"], "unknown")
+
+
 if __name__ == "__main__":
     unittest.main()

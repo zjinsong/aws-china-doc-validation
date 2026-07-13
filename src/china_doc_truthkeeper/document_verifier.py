@@ -138,10 +138,11 @@ class DocumentFeatureVerifier:
         self.botocore_session = botocore_session or Session()
         self.registry = tuple(registry) if registry is not None else load_probe_registry()
 
-    def verify(self, documentation_url: str, service: str, feature: str, region: str) -> dict:
+    def verify(self, documentation_url: str, service: str, feature: str, region: str, resource: str | None = None) -> dict:
         url = validate_china_documentation_url(documentation_url)
         service = service.strip()
         feature = feature.strip()
+        resource = resource.strip() if resource else None
         if not service or not feature:
             raise DocumentVerificationError("service and feature must not be empty")
 
@@ -168,7 +169,7 @@ class DocumentFeatureVerifier:
 
         selected_candidates = sorted(candidates)[: self.max_generic_probes]
         for operation in selected_candidates:
-            if not (operation.startswith("List") or operation.startswith("Describe")):
+            if not (operation.startswith("List") or operation.startswith("Describe") or operation.startswith("Get")):
                 continue
             if operation not in known_operations:
                 probes.append({"operation": operation, "status": "api_not_in_sdk"})
@@ -187,11 +188,13 @@ class DocumentFeatureVerifier:
                 )
                 continue
 
-            if client is None:
-                client = self.client_factory(service, region_name=region)
             if is_adapter_operation:
-                probe = self._run_adapter(client, service, feature, region, adapter)
+                if client is None:
+                    client = self.client_factory(service, region_name=region)
+                probe = self._run_adapter(client, service, feature, region, adapter, resource)
             else:
+                if client is None:
+                    client = self.client_factory(service, region_name=region)
                 probe = self._call(client, service, operation, region, {})
             probes.append(probe)
 
@@ -205,6 +208,7 @@ class DocumentFeatureVerifier:
             "evidence": {
                 "method": "AWS China documentation + safe List/Describe API probes",
                 "documentation_url": final_url,
+                "resource_provided": bool(resource),
                 "document": document,
                 "probes": safe_probes,
                 "probe_limit": self.max_generic_probes,
@@ -245,12 +249,14 @@ class DocumentFeatureVerifier:
                         "operation": probe["operation"],
                         "probe_type": probe.get("type", "api_reachable"),
                     }
+                    if "param_name" in probe:
+                        adapter["param_name"] = probe["param_name"]
                     if "interpretation" in probe:
                         adapter["interpretation"] = probe["interpretation"]
                     return adapter
         return None
 
-    def _run_adapter(self, client, service: str, feature: str, region: str, adapter: dict) -> dict:
+    def _run_adapter(self, client, service: str, feature: str, region: str, adapter: dict, resource: str | None = None) -> dict:
         probe_type = adapter.get("probe_type")
         operation = adapter["operation"]
 
@@ -278,6 +284,33 @@ class DocumentFeatureVerifier:
                 probe["status"] = "available" if matches else "unavailable"
                 probe["matched_instance_types"] = matches
                 probe["interpretation"] = "Matching regional EC2 instance type offerings were returned."
+            return probe
+
+        if probe_type == "resource_probe":
+            param_name = adapter.get("param_name", "Resource")
+            # Safe-by-default: a resource-scoped probe only runs when the caller
+            # explicitly supplies a resource name. Without it, no AWS call is made.
+            if not resource:
+                return {
+                    "operation": operation,
+                    "status": "not_probeable_without_resource",
+                    "required_resource": param_name,
+                    "interpretation": (
+                        f"{operation} needs an explicit {param_name}. Provide a resource name "
+                        "to run this read-only probe against your own account."
+                    ),
+                }
+            probe = self._call(client, service, operation, region, {param_name: resource})
+            probe["provided_resource"] = param_name
+            if probe["status"] == "api_available":
+                probe.pop("_response", None)
+                # The control-plane API responded successfully for a real resource,
+                # which confirms the feature API works in this region.
+                probe["status"] = "available"
+            probe["interpretation"] = adapter.get(
+                "interpretation",
+                f"The {operation} API is reachable for the provided {param_name}.",
+            )
             return probe
 
         # Default: an "api_reachable" probe. Calling a zero-parameter List/Describe
